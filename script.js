@@ -16,13 +16,25 @@ class Workout {
     this.distance = distance;
     this.duration = duration;
   }
+
+  _setDescription() {
+    // prettier-ignore
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    this.description = `${this.type[0].toUpperCase()}${this.type.slice(1)} on ${
+      months[this.date.getMonth()]
+    } ${this.date.getDate()}`;
+  }
 }
 
 class Running extends Workout {
+  type = "running";
+
   constructor(coords, distance, duration, speed) {
     super(coords, distance, duration);
     this.speed = speed;
     this.calcPace();
+    this._setDescription();
   }
 
   calcPace() {
@@ -32,10 +44,13 @@ class Running extends Workout {
 }
 
 class Cycling extends Workout {
+  type = "cycling";
+
   constructor(coords, distance, duration, elev) {
     super(coords, distance, duration);
     this.elev = elev;
     this.calcSpeed();
+    this._setDescription();
   }
 
   calcSpeed() {
@@ -49,6 +64,8 @@ class Cycling extends Workout {
 class App {
   #map; //Private properties
   #mapEvent;
+  #workouts = [];
+
   constructor() {
     //immediately called when a new object created from class
     this._getPosition();
@@ -84,6 +101,18 @@ class App {
     form.classList.remove("hidden");
     inputDistance.focus();
   }
+  _hideForm() {
+    //Empty inputs
+    inputDistance.value =
+      inputDuration.value =
+      inputSpeed.value =
+      inputSpeed.value =
+        "";
+    //Add hidden class
+    form.style.display = "none";
+    form.classList.add("hidden");
+    setTimeout(() => (form.style.display = "grid"), 1000);
+  }
 
   _toggledElevationField() {
     inputElevation.closest(".form__row").classList.toggle("form__row--hidden");
@@ -91,16 +120,59 @@ class App {
   }
 
   _newWorkout(e) {
+    //Helper functions
+    const validInputs = (...inputs) =>
+      inputs.every((inp) => Number.isFinite(inp));
+    const checkPositive = (...inputs) => inputs.every((inp) => inp > 0);
+
     e.preventDefault();
-    //Clearing input fields
-    inputDistance.value =
-      inputDuration.value =
-      inputSpeed.value =
-      inputSpeed.value =
-        "";
-    //Displaying Markers
+    //Getting Data from the form
+    const type = inputType.value;
+    const distance = +inputDistance.value;
+    const duration = +inputDuration.value;
     const { lat, lng } = this.#mapEvent.latlng;
-    L.marker([lat, lng])
+    let workout;
+    //If workout is a run, create running object
+    if (type === "running") {
+      const speed = +inputSpeed.value;
+      //Check if data is valid
+      if (
+        !validInputs(distance, duration, speed) ||
+        !checkPositive(distance, duration, speed)
+      )
+        return alert("Inputs have to be positive numbers!");
+
+      workout = new Running([lat, lng], distance, duration, speed);
+    }
+
+    //If workout is cycling, create cycling object
+    if (type === "cycling") {
+      const elevation = +inputElevation.value;
+      //Check if data is valid
+      if (
+        !validInputs(distance, duration, elevation) ||
+        !checkPositive(distance, duration)
+      )
+        return alert("Inputs have to be positive numbers!");
+      workout = new Cycling([lat, lng], distance, duration, elevation);
+    }
+
+    //Add the new workout(object) to the workout array
+    this.#workouts.push(workout);
+    console.log(workout);
+
+    //Render workout on map as marker
+    this._renderWorkoutMarker(workout);
+
+    //Render workout onto the list
+    this._renderWorkout(workout);
+
+    //Hide form and clear the input fields
+    this._hideForm();
+  }
+
+  _renderWorkoutMarker(workout) {
+    L.marker(workout.coords)
       .addTo(this.#map)
       .bindPopup(
         L.popup({
@@ -108,11 +180,64 @@ class App {
           minWidth: 100,
           autoClose: false,
           closeOnClick: false,
-          className: "popup",
+          className: `${workout.type}-popup`,
         })
       )
-      .setPopupContent("Workout")
+      .setPopupContent(
+        `${workout.type === "running" ? "🏃‍♂️" : "🚴‍♀️"} ${workout.description}`
+      )
       .openPopup();
+  }
+
+  _renderWorkout(workout) {
+    let html = `
+      <li class="workout workout--${workout.type}" data-id="${workout.id}">
+        <h2 class="workout__title">${workout.description}</h2>
+        <div class="workout__details">
+          <span class="workout__icon">${
+            workout.type === "running" ? "🏃‍♂️" : "🚴‍♀️"
+          }</span>
+          <span class="workout__value">${workout.distance}</span>
+          <span class="workout__unit">km</span>
+        </div>
+        <div class="workout__details">
+          <span class="workout__icon">⏱</span>
+          <span class="workout__value">${workout.duration}</span>
+          <span class="workout__unit">min</span>
+        </div>
+    `;
+
+    if (workout.type === "running")
+      html += `
+        <div class="workout__details">
+          <span class="workout__icon">⚡️</span>
+          <span class="workout__value">${workout.pace.toFixed(1)}</span>
+          <span class="workout__unit">min/km</span>
+        </div>
+        <div class="workout__details">
+          <span class="workout__icon">🦶🏼</span>
+          <span class="workout__value">${workout.speed}</span>
+          <span class="workout__unit">spm</span>
+        </div>
+      </li>
+      `;
+
+    if (workout.type === "cycling")
+      html += `
+        <div class="workout__details">
+          <span class="workout__icon">⚡️</span>
+          <span class="workout__value">${workout.speed.toFixed(1)}</span>
+          <span class="workout__unit">km/h</span>
+        </div>
+        <div class="workout__details">
+          <span class="workout__icon">⛰</span>
+          <span class="workout__value">${workout.elev}</span>
+          <span class="workout__unit">m</span>
+        </div>
+      </li>
+      `;
+
+    form.insertAdjacentHTML("afterend", html); //Adding Element at sibling at end of form
   }
 }
 
