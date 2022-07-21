@@ -8,6 +8,44 @@ const inputDuration = document.querySelector(".form__input--duration");
 const inputSpeed = document.querySelector(".form__input--speed");
 const inputElevation = document.querySelector(".form__input--elevation");
 
+class Workout {
+  date = new Date();
+  id = (Date.now() + "").slice(-10);
+  constructor(coords, distance, duration) {
+    this.coords = coords;
+    this.distance = distance;
+    this.duration = duration;
+  }
+}
+
+class Running extends Workout {
+  constructor(coords, distance, duration, speed) {
+    super(coords, distance, duration);
+    this.speed = speed;
+    this.calcPace();
+  }
+
+  calcPace() {
+    this.pace = this.duration / this.distance;
+    return this.pace;
+  }
+}
+
+class Cycling extends Workout {
+  constructor(coords, distance, duration, elev) {
+    super(coords, distance, duration);
+    this.elev = elev;
+    this.calcSpeed();
+  }
+
+  calcSpeed() {
+    this.speed = this.distance / (this.duration / 60);
+    return this.speed;
+  }
+}
+
+/////////////////////////////////////////////////////////////////
+//APPLICATION STRUCTURE
 class App {
   #map; //Private properties
   #mapEvent;
